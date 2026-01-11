@@ -2,7 +2,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 import just_for_testing as main
-from computer_class import computer
+import computer
 
 CORNERS = {"0,0", "0,7", "7,0", "7,7"}
 
@@ -125,7 +125,7 @@ class OthelloTrainEnvBot(gym.Env):
                 'unstable_edge': -80, "edge_retake": 200, "corner_give": 250,
                 'edge_annoying': 150, 'edge_less_annoying': 50, "corner_deny": 300
             }
-            bot_move = computer().playcom(self.move_number, self.dic, self.player, weights)
+            bot_move = computer.playcom(self.move_number, self.dic, self.player, weights)
 
             if bot_move:
                 self.dic = main.flip(bot_move, self.move_number, self.dic, self.player)
