@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Othello Game</title>
+    <style>
+        body { font-family: Arial; text-align: center; margin-top: 20px; }
+        canvas { border: 2px solid black; margin-top: 10px; }
+        select, button { margin: 5px; }
+        #description { margin: 20px auto; max-width: 600px; text-align: left; }
+    </style>
+</head>
+<body>
+<h1>Othello</h1>
+
+<div id="description">
+    <h3>About this Othello AI</h3>
+    <p>This Othello game supports multiple AI and human players. You can play against:</p>
+    <ul>
+        <li><strong>Random:</strong> picks any legal move randomly</li>
+        <li><strong>Computer:</strong> heuristic-based algorithm (corners, edges, mobility)</li>
+        <li><strong>AI Model:</strong> trained using reinforcement learning (PPO)</li>
+    </ul>
+</div>
+
+<div>
+    Black: 
+    <select id="blackPlayer">
+        <option value="human">Human</option>
+        <option value="random">Random</option>
+        <option value="computer">Computer</option>
+        <option value="ai">AI Model</option>
+    </select>
+    White: 
+    <select id="whitePlayer">
+        <option value="human">Human</option>
+        <option value="random">Random</option>
+        <option value="computer">Computer</option>
+        <option value="ai">AI Model</option>
+    </select>
+</div>
+
+<div>
+    <button id="startBtn">Start Game</button>
+    <button id="resetBtn">Reset Game</button>
+    <button id="backBtn">⏮️ Previous Move</button>
+    <button id="forwardBtn">⏭️ Next Move</button>
+</div>
+
+<canvas id="board" width="400" height="400"></canvas>
+<div id="moves"></div>
+
+<script>
+const canvas = document.getElementById("board");
+const ctx = canvas.getContext("2d");
+const SIZE = 8;
+const CELL = canvas.width / SIZE;
+
+let board = {};
+let turn = "black";
+
+// Draw grid
+function drawGrid(){
+    ctx.strokeStyle = "black";
+    for(let i=0;i<=SIZE;i++){
+        ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(canvas.width,i*CELL); ctx.stroke();
+    }
+}
+
+// Draw pieces
+function drawBoard(b){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawGrid();
+    board = b;
+    for(const key in b){
+        const [r,c] = key.split(",").map(Number);
+        const color = b[key];
+        const x = c*CELL+CELL/2;
+        const y = r*CELL+CELL/2;
+        const radius = CELL/2-4;
+        ctx.beginPath();
+        ctx.arc(x,y,radius,0,Math.PI*2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.stroke();
+    }
+}
+
+
+
+// Start button
+document.getElementById("startBtn").onclick = () => {
+    const black = document.getElementById("blackPlayer").value;
+    const white = document.getElementById("whitePlayer").value;
+
+    fetch("/start_game", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ blackPlayer: black, whitePlayer: white })
+    })
+    .then(r => r.json())
+    .then(data => {
+        drawBoard(data.board);
+
+        if (data.nextPlayerType !== "human") {
+            setTimeout(autoPlay, 800);
+        }
+    });
+};
+
+// Reset button
+document.getElementById("resetBtn").onclick = () => {
+    fetch("/reset_game",{method:"POST"})
+    .then(r=>r.json()).then(data=>drawBoard(data.board));
+};
+
+// Backward / Forward
+document.getElementById("backBtn").onclick = () => {
+    fetch("/navigate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({direction:"back"})})
+    .then(r=>r.json()).then(data=>drawBoard(data.board));
+};
+
+document.getElementById("forwardBtn").onclick = () => {
+    fetch("/navigate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({direction:"forward"})})
+    .then(r=>r.json()).then(data=>drawBoard(data.board));
+};
+
+// Handle clicks for human moves
+canvas.addEventListener("click", e => {
+    const rect = canvas.getBoundingClientRect();
+    const col = Math.floor((e.clientX - rect.left) / CELL);
+    const row = Math.floor((e.clientY - rect.top) / CELL);
+
+    fetch("/human_move", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ row, col })
+    })
+    .then(r => r.json())
+    .then(data => {
+        drawBoard(data.board);
+
+        if (data.end) {
+            alert(data.post);
+            return;
+        }
+
+        // Let AI / computer continue automatically
+        setTimeout(autoPlay, 800);
+    });
+});
+
+
+
+function autoPlay() {
+    fetch("/step", { method: "POST" })
+        .then(r => r.json())
+        .then(data => {
+            drawBoard(data.board);
+
+            if (data.end) {
+                alert(data.post);
+                return;
+            }
+
+            if (data.nextPlayerType !== "human") {
+                setTimeout(autoPlay, 800);
+            }
+        });
+}
+
+
+// Initial draw
+fetch("/start_game",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({blackPlayer:"human", whitePlayer:"computer"})})
+.then(r=>r.json()).then(data=>drawBoard(data.board));
+
+
+
+</script>
