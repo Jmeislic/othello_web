@@ -4,13 +4,13 @@ import random
 import time
 from computer import playcom
 from policy import OthelloPolicy
-from policy_train import OthelloTrainEnvBot
+
 import copy
 app = Flask(__name__)
 class GameManager:
     def __init__(self):
-        self.env = OthelloTrainEnvBot()  
-        self.ai_model = OthelloPolicy("ppo_12500000")  # Model
+
+        self.ai_model = OthelloPolicy("othello_policy_numpy.pkl")  # Model
         self.board = main.init_board()
         self.turn = "black"
         self.player_types = {"black": "human", "white": "human"}

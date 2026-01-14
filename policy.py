@@ -3,15 +3,40 @@ from stable_baselines3 import PPO
 import just_for_testing as main
 
 
-class OthelloPolicy:
-    """
-    Wrapper around a trained PPO model that can play Othello.
-    Can play as black or white. PPO is trained to play black,
-    but we can switch perspectives for white by inverting the board.
-    """
+import numpy as np
+import pickle
 
-    def __init__(self, model_path: str):
-        self.model = PPO.load(model_path)
+def relu(x):
+    return np.maximum(0, x)
+
+class OthelloPolicy:
+    def __init__(self, path):
+        with open(path, "rb") as f:
+            self.w = pickle.load(f)
+
+    def predict_move(self, board, player_index, color):
+        obs = self.board_to_obs(board, color)
+
+        x = obs
+        x = relu(
+            x @ self.w["mlp_extractor.policy_net.0.weight"].T +
+            self.w["mlp_extractor.policy_net.0.bias"]
+        )
+        x = x @ self.w["action_net.weight"].T + self.w["action_net.bias"]
+
+        action = int(np.argmax(x))
+        return divmod(action, 8)
+
+    def board_to_obs(self, board, color):
+        obs = np.zeros((64,), dtype=np.float32)
+        for key, v in board.items():
+            r, c = map(int, key.split(","))
+            idx = r * 8 + c
+            if v == color:
+                obs[idx] = 1
+            elif v is not None:
+                obs[idx] = -1
+        return obs
 
     # ----------------------------
     # Board conversion
@@ -49,28 +74,3 @@ class OthelloPolicy:
 
         return mask
 
-    # ----------------------------
-    # Predict move
-    # ----------------------------
-    def predict_move(self, dic, move_number, color: str):
-        """
-        Returns (row, col) for the move or None if no legal moves.
-        Handles both black and white by adjusting the board perspective.
-        """
-        obs = self.dic_to_tensor(dic, color)
-        mask = self.legal_mask(dic, move_number, color)
-
-        if not mask.any():
-            return None  # no legal moves
-
-        # Predict action
-        action, _ = self.model.predict(
-            obs,
-            deterministic=True
-        )
-
-        # Safety: force legality
-        if not mask[action]:
-            action = np.where(mask)[0][0]
-
-        return divmod(action, 8)
