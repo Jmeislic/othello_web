@@ -4,6 +4,8 @@ import random
 import time
 from computer import playcom
 from policy import OthelloPolicy
+import os
+
 
 import copy
 app = Flask(__name__)
@@ -222,4 +224,5 @@ def step():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
