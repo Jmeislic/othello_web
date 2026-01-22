@@ -119,7 +119,7 @@ def index():
 def start_game():
     data = request.get_json()
     black = data.get("blackPlayer", "human")
-    white = data.get("whitePlayer", "computer")
+    white = data.get("whitePlayer", "human")
 
     game_manager.reset(black, white)
 
