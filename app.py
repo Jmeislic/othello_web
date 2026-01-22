@@ -20,7 +20,7 @@ class GameManager:
         self.current_index = 0
         self.game_over = False
 
-    def reset(self, black="human", white="computer"):
+    def reset(self, black="human", white="human"):
         self.board = main.init_board()
         self.turn = "black"
         self.player_types = {"black": black, "white": white}
