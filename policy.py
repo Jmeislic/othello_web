@@ -1,76 +1,56 @@
 import numpy as np
-from stable_baselines3 import PPO
+from sb3_contrib import MaskablePPO
 import just_for_testing as main
 
 
-import numpy as np
-import pickle
-
-def relu(x):
-    return np.maximum(0, x)
-
 class OthelloPolicy:
-    def __init__(self, path):
-        with open(path, "rb") as f:
-            self.w = pickle.load(f)
+    """
+    Wrapper around a trained MaskablePPO model.
+    Guaranteed to return only legal moves.
+    """
 
-    def predict_move(self, board, player_index, color):
-        obs = self.board_to_obs(board, color)
+    def __init__(self, model_path: str):
+        self.model = MaskablePPO.load(model_path)
 
-        x = obs
-        x = relu(
-            x @ self.w["mlp_extractor.policy_net.0.weight"].T +
-            self.w["mlp_extractor.policy_net.0.bias"]
-        )
-        x = x @ self.w["action_net.weight"].T + self.w["action_net.bias"]
-
-        action = int(np.argmax(x))
-        return divmod(action, 8)
-
-    def board_to_obs(self, board, color):
-        obs = np.zeros((64,), dtype=np.float32)
-        for key, v in board.items():
-            r, c = map(int, key.split(","))
-            idx = r * 8 + c
-            if v == color:
-                obs[idx] = 1
-            elif v is not None:
-                obs[idx] = -1
+    # ----------------------------
+    # Board encoding
+    # ----------------------------
+    def dic_to_tensor(self, board, color: str):
+        """
+        +1 = current player
+        -1 = opponent
+        """
+        obs = np.zeros((8, 8), dtype=np.float32)
+        for k, v in board.items():
+            r, c = map(int, k.split(","))
+            obs[r, c] = 1.0 if v == color else -1.0
         return obs
 
     # ----------------------------
-    # Board conversion
+    # Legal action mask
     # ----------------------------
-    def dic_to_tensor(self, dic, color: str):
-        """
-        Convert board dict to (8,8) tensor.
-        Positive = current player's pieces, negative = opponent.
-        """
-        board = np.zeros((8, 8), dtype=np.int8)
-
-        for k, v in dic.items():
-            r, c = map(int, k.split(","))
-            if v == color:
-                board[r, c] = 1
-            else:
-                board[r, c] = -1
-
-        return board
-
-    # ----------------------------
-    # Legal move mask
-    # ----------------------------
-    def legal_mask(self, dic, move_number, color: str):
-        """
-        Returns boolean mask of size 64. True = legal move for `color`.
-        """
+    def legal_mask(self, board, move_number, color: str):
         mask = np.zeros(64, dtype=bool)
-
         for r in range(8):
             for c in range(8):
-                coord = f"{r},{c}"
-                if main.checkpiecenosorry(coord, move_number, dic, color):
+                if main.checkpiecenosorry(f"{r},{c}", move_number, board, color):
                     mask[r * 8 + c] = True
-
         return mask
 
+    # ----------------------------
+    # Predict move
+    # ----------------------------
+    def predict_move(self, board, move_number, color: str):
+        mask = self.legal_mask(board, move_number, color)
+        if not mask.any():
+            return None  # pass
+
+        obs = self.dic_to_tensor(board, color)
+
+        action, _ = self.model.predict(
+            obs,
+            action_masks=mask,
+            deterministic=True
+        )
+
+        return divmod(action, 8)

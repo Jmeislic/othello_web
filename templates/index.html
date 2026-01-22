@@ -165,10 +165,16 @@ function autoPlay() {
             }
 
             if (data.nextPlayerType !== "human") {
-                setTimeout(autoPlay, 800);
+                // Wait for 1 second and play the computer's turn again if it's not human's turn
+                setTimeout(autoPlay, 1000);
+            }
+            // If the human has no valid move (skip flag is true), play the computer's turn again
+            else if (data.skip) {
+                setTimeout(autoPlay, 1000);  // Trigger computer's move again
             }
         });
 }
+
 
 
 // Initial draw

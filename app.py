@@ -12,7 +12,7 @@ app = Flask(__name__)
 class GameManager:
     def __init__(self):
 
-        self.ai_model = OthelloPolicy("othello_policy_numpy.pkl")  # Model
+        self.ai_model = OthelloPolicy("ppo_25000000")  # Model
         self.board = main.init_board()
         self.turn = "black"
         self.player_types = {"black": "human", "white": "human"}
@@ -128,6 +128,7 @@ def start_game():
         "turn": game_manager.turn,
         "nextPlayerType": game_manager.player_types[game_manager.turn],
         "end": False
+        
     })
 
 
@@ -157,9 +158,9 @@ def navigate():
         board = game_manager.go_forward()
     return jsonify({"board": board})
 
-
 @app.route("/step", methods=["POST"])
 def step():
+    skip_human = False
     gm = game_manager
     post = ""
 
@@ -180,7 +181,8 @@ def step():
             "board": gm.board,
             "end": True,
             "turn": gm.turn,
-            "nextPlayerType": None
+            "nextPlayerType": None,
+            "skip": skip_human
         })
 
     # ---------- GAME ALREADY OVER ----------
@@ -192,20 +194,29 @@ def step():
 
     # ---------- HUMAN TURN ----------
     if player_type == "human":
+        if not gm.legal_moves(color):  # Check if the human has no valid move
+            # Skip the human's turn
+            gm.turn = "white" if gm.turn == "black" else "black"
+            skip_human = True
         return jsonify({
             "post": "",
             "board": gm.board,
             "end": False,
             "turn": gm.turn,
-            "nextPlayerType": player_type
+            "nextPlayerType": player_type,
+            "skip": skip_human
         })
 
-    # ---------- NON-HUMAN MOVE ----------
+    # ---------- COMPUTER MOVE ----------
     moved = gm.make_move(None, None)
+
+    oppcolor = "white" if gm.turn == "black" else "black"
+    if gm.legal_moves(oppcolor):
+        skip_human = True  # The human doesn't have a valid move, computer will play again
 
     # ---------- SKIP TURN IF NO MOVE ----------
     if not moved:
-        gm.turn = "white" if gm.turn == "black" else "black"
+        gm.turn = oppcolor
 
     # ---------- FINAL GAME CHECK ----------
     if not gm.legal_moves("black") and not gm.legal_moves("white"):
@@ -218,9 +229,9 @@ def step():
         "board": gm.board,
         "end": False,
         "turn": gm.turn,
-        "nextPlayerType": gm.player_types[gm.turn]
+        "nextPlayerType": gm.player_types[gm.turn],
+        "skip": skip_human
     })
-
 
 
 if __name__ == "__main__":
