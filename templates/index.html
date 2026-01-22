@@ -178,7 +178,7 @@ function autoPlay() {
 
 
 // Initial draw
-fetch("/start_game",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({blackPlayer:"human", whitePlayer:"computer"})})
+fetch("/start_game",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({blackPlayer:"human", whitePlayer:"human"})})
 .then(r=>r.json()).then(data=>drawBoard(data.board));
 
 
