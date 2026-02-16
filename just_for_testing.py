@@ -1,504 +1,177 @@
+
 import string
 import human
 import computer
-import randombot
+import randombot 
 import chat_gpt_othello_bot as chatgpt
-import aimodelclass
-
+from policy import OthelloPolicy
 # helper for circles
-
-
-
-
-
-def checkenddown(dic,move,x,y):
-    #check if there is a piece directly under it
-    
-    try:
-        dic[str(x)+","+str(y+1)]
-    except:
+# Optimized Directional Check
+def isoutside(x, y, move, dic):
+    if x == 0 or x == 7 or y == 0 or y == 7:
         return False
-    #is the piece right under it the same color
-    if dic[str(x)+","+str(y+1)]==move:
-        return False
-    #try to see 
-    out = 0
-    for i in range(2,8):
-        if str(x)+","+str(y+i) in dic:
-            if isoutside(x,y+i,move,dic):
-                out +=1
-            if dic[str(x)+","+str(y+i)]==move:
-                return (i,out)
-          
-        else:
-            return False
+    # Check all 8 neighbors for empty spaces
+    for dx, dy in [(0,1),(0,-1),(1,0),(-1,0),(1,1),(1,-1),(-1,1),(-1,-1)]:
+        if (x + dx, y + dy) not in dic:
+            return True
     return False
-    
-def checkendup(dic,move,x,y):
-    #check if there is a piece directly over it     
-    try:
-        dic[str(x)+","+str(y-1)]
-    except:
-        return False
-    out = 0
-    #is the piece right under it the same color
-    if dic[str(x)+","+str(y-1)]==move:
-        return False
-    #try to see 
-    for i in range(2,8):
-        if str(x)+","+str(y-i) in dic:
-            if isoutside(x,y-i,move,dic):
-                out +=1
-            if dic[str(x)+","+str(y-i)]==move:
-                return (i,out)
-        else:
-            return False
-    return False
-        
-        
-def checkendleft(dic,move,x,y):
-   
-        #check if there is a piece directly left it
-    
-    try:
-        dic[str(x-1)+","+str(y)]
-        
-        
-    except:
-        return False
-    out = 0
-    #is the piece right under it the same color
-    if dic[str(x-1)+","+str(y)]==move:
-        return False
-    #try to see 
-    for i in range(2,8):
-        if str(x-i)+","+str(y) in dic:
-            if isoutside(x-i,y,move,dic):
-                out +=1
-            if dic[str(x-i)+","+str(y)]==move:
-                return (i,out) 
 
-        else:
-            return False
-    return False
-        
-def checkendright(dic,move,x,y):
-        #check if there is a piece directly right it
-    
-    try:
-        dic[str(x+1)+","+str(y)]
-        
-        
-    except:
+def check_dir_base(dic, move, x, y, dx, dy):
+    # This is the logic shared by all your checkend functions
+    if dic.get((x + dx, y + dy)) is None or dic.get((x + dx, y + dy)) == move:
         return False
-
     out = 0
-    #is the piece right of it the same color
-    if dic[str(x+1)+","+str(y)]==move:
-        return False
-    #try to see 
-    for i in range(2,8):
-        if str(x+i)+","+str(y) in dic:
-            if isoutside(x+i,y,move,dic):
-                out +=1
-            if dic[str(x+i)+","+str(y)]==move:
-                return (i,out)
-        
+    for i in range(2, 8):
+        nx, ny = x + (dx * i), y + (dy * i)
+        piece = dic.get((nx, ny))
+        if piece:
+            if isoutside(nx, ny, move, dic):
+                out += 1
+            if piece == move:
+                return (i, out)
         else:
             return False
     return False
 
-def checkendupdiag(dic,move,x,y):
-    #check if there is a piece directly up diagonal it
-    try:
-        dic[str(x+1)+","+str(y-1)]
-    except:
-        return False
+# Individual functions so playcom doesn't crash
+def checkenddown(dic, move, x, y): return check_dir_base(dic, move, x, y, 0, 1)
+def checkendup(dic, move, x, y): return check_dir_base(dic, move, x, y, 0, -1)
+def checkendleft(dic, move, x, y): return check_dir_base(dic, move, x, y, -1, 0)
+def checkendright(dic, move, x, y): return check_dir_base(dic, move, x, y, 1, 0)
+def checkendupdiag(dic, move, x, y): return check_dir_base(dic, move, x, y, 1, -1)
+def checkenddowndia(dic, move, x, y): return check_dir_base(dic, move, x, y, 1, 1)
+def checkendotherdia(dic, move, x, y): return check_dir_base(dic, move, x, y, -1, -1)
+def checkendolastdia(dic, move, x, y): return check_dir_base(dic, move, x, y, -1, 1)
 
-    out = 0
-    #is the piece right under it the same color
-    if dic[str(x+1)+","+str(y-1)]==move:
-        return False
-    #try to see 
-    for i in range(2,8):
-        if str(x+i)+","+str(y-i) in dic:
-            if isoutside(x+i,y-i,move,dic):
-                out +=1
-            if dic[str(x+i)+","+str(y-i)]==move:
-                return (i,out)
-
-        else:
-            return False
-    return False
-    
-   
-        
-def checkenddowndia(dic,move,x,y):
-            #check if there is a piece directly up diagonal it
-    
-    try:
-        dic[str(x+1)+","+str(y+1)]
-        
-        
-    except:
-        return False
-    out = 0
-    #is the piece right under it the same color
-    if dic[str(x+1)+","+str(y+1)]==move:
-        return False
-    #try to see 
-    for i in range(2,8):
-        if str(x+i)+","+str(y+i) in dic:
-            if isoutside(x+i,y+i,move,dic):
-                out +=1
-            if dic[str(x+i)+","+str(y+i)]==move:
-                return (i,out)
-        
-        else:
-            return False
-    return False
-
-  
-        
-def checkendotherdia(dic,move,x,y):
-            #check if there is a piece directly down diagonal it
-    
-    try:
-        dic[str(x-1)+","+str(y-1)]
-        
-        
-    except:
-        return False
-    out = 0
-    #is the piece right under it the same color
-    if dic[str(x-1)+","+str(y-1)]==move:
-        return False
-    #try to see 
-    for i in range(2,8):
-        if str(x-i)+","+str(y-i) in dic:
-            if isoutside(x-i,y-i,move,dic):
-                out +=1
-            if dic[str(x-i)+","+str(y-i)]==move:
-                return (i,out)
-
-        else:
-            return False
-    return False
-        
-def checkendolastdia(dic,move,x,y):
-    #check if there is a piece directly down diagonal it
-    
-    try:
-        dic[str(x-1)+","+str(y+1)]
-    except:
-        return False
-    out = 0
-    #is the piece right under it the same color
-    if dic[str(x-1)+","+str(y+1)]==move:
-        return False
-    #try to see 
-    for i in range(2,8):
-        if str(x-i)+","+str(y+i) in dic:
-            if isoutside(x-i,y+i,move,dic):
-                out +=1
-            if dic[str(x-i)+","+str(y+i)]==move:
-
-                return (i,out)
-        
-        else:
-            return False
-    return False
-
-
-
-
-
-def flippieces1(dic,move,x,y):
-
-
-    #flip pieces down
-    #condition the reursive thing will stop when it gets to the a piece that it 
-    if dic[str(x)+","+str(y)]==move:
-        return dic
-    
-    
-    dic[str(x)+","+str(y)]=move
-    return flippieces1(dic,move,x,y+1)          
-
-
-
-             
-def flippieces2(dic,move,x,y):
-
-    #flip pieces up
-    #condition the reursive thing will stop when it gets to the a piece that it 
-    if dic[str(x)+","+str(y)]==move:
-        return dic
-    
-    dic[str(x)+","+str(y)]=move
-    return flippieces2(dic,move,x,y-1)
-             
-                    
-
-def flippieces3(dic,move,x,y):
-    #flip pieces left
-   #condition the reursive thing will stop when it gets to the a piece that it 
-    if dic[str(x)+","+str(y)]==move:
-        return dic
-    
-    dic[str(x)+","+str(y)]=move
-    return flippieces3(dic,move,x-1,y)
-                 
-                    
-def flippieces4(dic,move,x,y):
-    #flip pieces right
-    #condition the reursive thing will stop when it gets to the a piece that it 
-    if dic[str(x)+","+str(y)]==move:
-        return dic
-    
-    dic[str(x)+","+str(y)]=move
-    return flippieces4(dic,move,x+1,y)                          
-
-def flippieces5(dic,move,x,y):
-    
-    #flip pieces diagonal down
-    #condition the reursive thing will stop when it gets to the a piece that it 
-    if dic[str(x)+","+str(y)]==move:
-        return dic
-    
-    dic[str(x)+","+str(y)]=move
-    return flippieces5(dic,move,x+1,y+1)                        
-                
-def flippieces6(dic,move,x,y):
-    #condition the reursive thing will stop when it gets to the a piece that it 
-    if dic[str(x)+","+str(y)]==move:
-        return dic
-    
-    dic[str(x)+","+str(y)]=move
-    return flippieces6(dic,move,x-1,y-1)
-
-def flippieces7(dic,move,x,y):
-    #condition the reursive thing will stop when it gets to the a piece that it 
-    if dic[str(x)+","+str(y)]==move:
-        return dic
-    
-    dic[str(x)+","+str(y)]=move
-    return flippieces7(dic,move,x-1,y+1)
-
-def flippieces8(dic,move,x,y):
-    #condition the reursive thing will stop when it gets to the a piece that it 
-    if dic[str(x)+","+str(y)]==move:
-        return dic
-    
-    dic[str(x)+","+str(y)]=move
-    return flippieces8(dic,move,x+1,y-1)
-
-     
-def isoutside(x,y,move,dic):
-    if x ==0 or x==7 or y==0 or y==7:
-        return False
-    elif str(x+1)+","+str(y) not in dic:
-        return True
-    elif str(x)+","+str(y+1) not in dic:
-        return True
-    elif str(x+1)+","+str(y+1) not in dic:
-        return True
-    elif str(x-1)+","+str(y+1) not in dic:
-        return True
-    elif str(x-1)+","+str(y) not in dic:
-        return True
-    elif str(x-1)+","+str(y-1) not in dic:
-        return True
-    elif str(x+1)+","+str(y) not in dic:
-        return True
-    elif str(x)+","+str(y-1) not in dic:
-        return True
+def flip(coordinates, movenumber, dic, move):
+    if isinstance(coordinates, str):
+        x, y = map(int, coordinates.split(','))
     else:
+        x, y = coordinates
+    
+    newdic = dic.copy()
+    newdic[(x, y)] = move
+    
+    # Map the directions to your specific checkend functions
+    checkers = [
+        (0, 1, checkenddown), (0, -1, checkendup), 
+        (-1, 0, checkendleft), (1, 0, checkendright),
+        (1, -1, checkendupdiag), (1, 1, checkenddowndia),
+        (-1, -1, checkendotherdia), (-1, 1, checkendolastdia)
+    ]
+    
+    for dx, dy, checker in checkers:
+        res = checker(dic, move, x, y)
+        if res:
+            dist, _ = res
+            for i in range(1, dist):
+                newdic[(x + dx * i, y + dy * i)] = move
+    return newdic
+def check_direction(dic, move, x, y, dx, dy):
+    opponent = 'white' if move == 'black' else 'black'
+    nx, ny = x + dx, y + dy
+    
+    # Must have at least one opponent piece immediately adjacent
+    if dic.get((nx, ny)) != opponent:
         return False
-
-
-def checkpiece(coordinates,movenumber,dic,move):
-    try:
-      x=int(coordinates[0])
-      y=int(coordinates[2])
-    except:
-        print("sorry your input was bad")
-        return False
-    if len(coordinates)>3:
-            print("sorry your input should be three characters like '0,4' and no more")
+    
+    out_count = 0
+    # Search further in that direction
+    for i in range(2, 8):
+        nx, ny = x + dx * i, y + dy * i
+        
+        # Othello boards are 0-7
+        if not (0 <= nx <= 7 and 0 <= ny <= 7):
             return False
-    if x<0 or x>7:
-        print("sorry your x coordinate should greater than or equal to 0 and be less than or equal to 7")
-        return False
-    if 0>y or y>7:
-        print("sorry your y coordinate should greater than or equal to 0 and be less than or equal to 7")
-        return False
-    if coordinates[1]!=',':
-        print("sorry your input should be three characters like '0,4' and no more")
-        return False
-   
-    for i in dic.keys():
-        if int(i[0])==x and int(i[2])==y:
-            print("sorry there is already a piece there")
-            return False
-  
+            
+        piece = dic.get((nx, ny))
+        if piece is None:
+            return False # Empty space, move invalid in this direction
     
-    #make sure that the piecce bing placed will flip other pieces on the board
-    if checkenddown(dic,move,x,y)==False and checkendup(dic,move,x,y)==False and checkendleft(dic,move,x,y)==False and checkendright(dic,move,x,y)==False and checkendupdiag(dic,move,x,y)==False and checkenddowndia(dic,move,x,y)==False and checkendotherdia(dic,move,x,y)==False and checkendolastdia(dic,move,x,y)==False:
-        print("sorry you cannot put a piece there")
-        return False
-        #if one of those returns true then the piece will flip something
+            
+        if piece == move:
+            return i - 1 # Return pieces flipped and outside count
+            
+    return False
 
-    return True
+# Condensed directions list
+DIRECTIONS = [
+    (0, 1), (0, -1), (1, 0), (-1, 0),   # Down, Up, Right, Left
+    (1, 1), (-1, -1), (1, -1), (-1, 1)  # Diagonals
+]
 
-def checkpiecenosorry(coordinates,movenumber,dic,move):
-    #this is a check with no print statments so that the computer can check pieces anywhere on the board without unnecesary print statements
-    try:
-      x=int(coordinates[0])
-      y=int(coordinates[2])
-    except:
-        return False
-    if len(coordinates)>3:
-        return False
+def flip(coordinates, movenumber, dic, move):
+    # Convert string key to tuple if necessary
+    x, y = coordinates
+
+    dic[(x, y)] = move
     
-    if x<0 or x>7:
-        return False
-    if 0>y or y>7:
-       
-        return False
-    if coordinates in dic:
-        return False
+    for dx, dy in DIRECTIONS:
+        dist = check_direction(dic, move, x, y, dx, dy)
+        if dist:
+            # Flip pieces in this direction
+            for i in range(1, dist + 1):
+                dic[(x + dx * i, y + dy * i)] = move
+    return dic
+
+def findpossiblemoves(movenumber, dic, color):
+    possiblemoves = {}
     
-    #make sure that the piecce bing placed will flip other pieces on the board
-    if checkenddown(dic,move,x,y)==False and checkendup(dic,move,x,y)==False and checkendleft(dic,move,x,y)==False and checkendright(dic,move,x,y)==False and checkendupdiag(dic,move,x,y)==False and checkenddowndia(dic,move,x,y)==False and checkendotherdia(dic,move,x,y)==False and checkendolastdia(dic,move,x,y)==False:
-     
-        return False
+    for x in range(8):
+        for y in range(8):
+            # 1. Skip if already occupied
+            if (x, y) in dic:
+                continue
+                
+            total_k = 0
+            total_out = 0
+            
+            # 2. Check all directions
+            for dx, dy in DIRECTIONS:
+                res = check_direction(dic, color, x, y, dx, dy)
+                if res:
     
+                    total_k += res
+
+            
+            # 3. If it flips anything, it's a valid move
+            if total_k > 0:
+                possiblemoves[(x, y)] = (total_k, total_out)
+
+    return possiblemoves if possiblemoves else None
     
+def checkthatthereisamove(movenumber, dic, move):
+    """
+    Returns True as soon as one valid move is found.
+    Extremely fast for checking if the game should continue.
+    """
+    # Directions: (dx, dy)
+    directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
     
-    return True
-
-def flip(coordinates,movenumber,dic,move):
-    x=int(coordinates[0])
-    y=int(coordinates[2])
-    dic1 = dic.copy()
-    dic1[coordinates]= move
-    if checkenddown(dic1,move,x,y)!=False:
-        #flip those pieces
-        dic1=flippieces1(dic1,move,x,y+1)
-        
-    if checkendup(dic1,move,x,y)!=False:
-     
-        dic1=flippieces2(dic1,move,x,y-1) 
-    if checkendleft(dic1,move,x,y)!=False:
-       
-
-        dic1=flippieces3(dic1,move,x-1,y)
-    if checkendright(dic1,move,x,y)!=False:
-      
-
-        dic1=flippieces4(dic1,move,x+1,y)
-    if checkendupdiag(dic1,move,x,y)!=False:
- 
-        dic1=flippieces8(dic1,move,x+1,y-1)
-        
-    if checkenddowndia(dic1,move,x,y)!=False:
- 
-        dic1=flippieces5(dic1,move,x+1,y+1)
-        
-    if checkendotherdia(dic1,move,x,y)!=False:
-
-
-        dic1=flippieces6(dic1,move,x-1,y-1)
-
-    if checkendolastdia(dic1,move,x,y)!=False:
-     
-        dic1=flippieces7(dic1,move,x-1,y+1)
-    return dic1
+    for x in range(8):
+        for y in range(8):
+            # Skip occupied squares immediately
+            if (x, y) in dic:
+                continue
+            
+            # Check if this empty square flips anything in any direction
+            for dx, dy in directions:
+                if check_direction(dic, move, x, y, dx, dy):
+                    return True # Stop and return immediately
+                    
+    return False
 
 def donecount(dic):
-    black=0
-    white=0
-    for i in dic.values():
-        if i=='black':
-            black+=1
-        else:
-            white+=1
-    if black>white:
-     
-        return 0, black, white
-    if black<white:
-       
-        return 1, black, white
-    if black==white:
-        return 2, black, white
+    black_score = list(dic.values()).count('black')
+    white_score = list(dic.values()).count('white')
     
-
-
-def findpossiblemoves(movenumber,dic, color):
-    if not checkthatthereisamove(movenumber,dic,color):
-        return None
-    possiblemoves={}
-    move=color
-    k=0
-    #starts by seeing if there are any good places near the center
-    
-    #this cycles through all the possible moves to find the amount of pieces each move flips and saves it to a dictionary
-    for x in range(8):
-        for y in range(8):
-            if checkpiecenosorry(str(x)+","+str(y),movenumber,dic,color):
-                out = 0
-                k = 0
-                if checkenddown(dic,color,x,y)!=False:
-                    (k1,out1)=checkenddown(dic,color,x,y)
-                    k+=k1
-                    out+=out1
-                if checkendup(dic,color,x,y)!=False:
-                    (k1,out1)=checkendup(dic,color,x,y)
-                    k+=k1
-                    out+=out1
-                if checkendleft(dic,color,x,y)!=False:
-                    (k1, out1)=checkendleft(dic,color,x,y)
-                    k+=k1
-                    out+=out1
-                if checkendright(dic,color,x,y)!=False:
-                    (k1, out1)=checkendright(dic,color,x,y)
-                    k+=k1
-                    out+=out1
-                if checkendupdiag(dic,color,x,y)!=False:
-                    (k1, out1)=checkendupdiag(dic,color,x,y)
-                    k+=k1
-                    out+=out1
-                if checkenddowndia(dic,color,x,y)!=False: 
-                    (k1,out1)=checkenddowndia(dic,color,x,y)
-                    k+=k1
-                    out+=out1
-                if checkendotherdia(dic,color,x,y)!=False:
-                    (k1,out1)=checkendotherdia(dic,color,x,y)
-                    k+=k1
-                    out+=out1
-                if checkendolastdia(dic,color,x,y)!=False:
-                    (k1,out1)=checkendolastdia(dic,color,x,y)
-                    k+=k1
-                    out+=out1
-           
-                if k>0:
-                
-                    possiblemoves[str(x)+","+str(y)]=(int(k), out)
-
-    return possiblemoves
-       
-def checkthatthereisamove(movenumber,dic,move):
-    
-    for x in range(8):
-        for y in range(8):
-
-            if checkpiecenosorry(str(x)+","+str(y),movenumber,dic,move):
-            
-                return True
-    return False
-    
-
+    # Return 0 if black wins, 1 if white wins, 2 for draw
+    if black_score > white_score:
+        return 0, black_score, white_score
+    elif white_score > black_score:
+        return 1, black_score, white_score
+    else:
+        return 2, black_score, white_score
 def init_board():
     """
     Returns a fresh Othello board as a dict:
@@ -506,68 +179,58 @@ def init_board():
     value = "black" or "white"
     """
     return {
-        "3,3": "white",
-        "3,4": "black",
-        "4,3": "black",
-        "4,4": "white"
+        (3,3): "white",
+        (3,4): "black",
+        (4,3): "black",
+        (4,4): "white"
     }
 
-
-def main_test(computerblack,computerwhite,randomblack,randomwhite, chat_gpt_black, chat_gpt_white, aimodel_black,aimodel_white, weights,):
-  
-    done1=False
-    move='black'
-    movenumber=1
-    dic={}
-    #there are four pieces already on the board
-    dic['3,3']='white'
-    dic['4,4']='white'
-    dic['4,3']='black'
-    dic['3,4']='black'
-    aimodel= aimodel.model()
-    while not done1:
-        done = False
-        #need to make sure there is a place to put the piece
-        if checkthatthereisamove(movenumber,dic,'black'):
-          
-            if computerblack:
-                coordinates=  computer.playcom(movenumber,dic,'black', weights)
-            elif randomblack:
-                coordinates= randombot.randomplaycom(movenumber,dic,'black')
-            elif chat_gpt_black:
-                coordinates= chatgpt.playcom(movenumber,dic,'black')
-            elif aimodel_black:
-                coordinates= aimodel.playcom(movenumber,dic,'black', weights)
-            x=int(coordinates[0])
-            y=int(coordinates[2])
-        
-            flip(coordinates,movenumber,dic,'black')
-            dic[coordinates] = move
-       
-       
-
-            "it is whites turn "
+def main_test1(computerblack, computerwhite, randomblack, randomwhite, chat_gpt_black, chat_gpt_white, aimodel_black, aimodel_white, dic):
+    # 1. Convert board to tuples once for high-speed access
+    # Handles both "x,y" and (x,y) formats for safety
+    fast_dic = {}
+    for k, v in dic.items():
+        if isinstance(k, str):
+            fast_dic[tuple(map(int, k.split(',')))] = v
         else:
-            done = True
-        if checkthatthereisamove(movenumber,dic,'white'):
-            
-            if computerwhite:
-                o= computer.playcom(movenumber,dic,'white', weights)
-            elif randomwhite:
-                o= randombot.randomplaycom(movenumber,dic,'white')
-            elif chat_gpt_white:
-                o= chatgpt.playcom(movenumber,dic,'white')
-            elif aimodel_white:
-                o= aimodel.playcom(movenumber,dic,'white', weights)
-            x=int(o[0])
-            y=int(o[2])
-         
-            flip(o,movenumber,dic,'white')
-            dic[o] = 'white'
-           
+            fast_dic[k] = v
 
-        elif done:
-          
-            return donecount(dic)
-            done1=True
-        movenumber+=2
+    movenumber = 1
+    
+    while True:
+        black_moved = False
+        white_moved = False
+
+        # --- BLACK'S TURN ---
+        if checkthatthereisamove(movenumber, fast_dic, 'black'):
+            if computerblack:
+                coords = computer.playcom(movenumber, fast_dic, 'black')
+            elif randomblack:
+                coords = randombot.randomplaycom(movenumber, fast_dic, 'black')
+            elif chat_gpt_black:
+                coords = chatgpt.playcom2(movenumber, fast_dic, 'black')
+            elif aimodel_black:
+                coords = OthelloPolicy("final").predict_move(fast_dic, movenumber, 'black')
+            
+            flip(coords, movenumber, fast_dic, 'black')
+            black_moved = True
+
+        # --- WHITE'S TURN ---
+        if checkthatthereisamove(movenumber, fast_dic, 'white'):
+            if computerwhite:
+                o = computer.playcom(movenumber, fast_dic, 'white')
+            elif randomwhite:
+                o = randombot.randomplaycom(movenumber, fast_dic, 'white')
+            elif chat_gpt_white:
+                o = chatgpt.playcom2(movenumber, fast_dic, 'white')
+            elif aimodel_white:
+                o = OthelloPolicy("final").predict_move(fast_dic, movenumber, 'white')
+
+            flip(o, movenumber, fast_dic, 'white')
+            white_moved = True
+
+        # --- END CONDITION ---
+        if not black_moved and not white_moved:
+            return donecount(fast_dic)
+
+        movenumber += 2
